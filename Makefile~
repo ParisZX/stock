@@ -1,0 +1,7 @@
+
+all:	marketSim.c
+	gcc -O3 -pthread -o marketSim marketSim.c
+
+clean:
+	rm -f marketSim
+ 
