@@ -246,7 +246,7 @@ void *ConsBuyMarket(argQueues *arg) {
 	   	//If true, then we have a canceled order, so we delete it from the queue, and go to the next
 	    //market Buyer in queue.
 	    	queueDel(arg->bm,&temp);
-	    	printf("cancelled");
+	    	//printf("cancelled");
   		    pthread_mutex_unlock (arg->bm->mut);
 	    	pthread_cond_signal (arg->bm->notFull);
 	    	continue;
@@ -326,8 +326,8 @@ void *ConsBuyMarket(argQueues *arg) {
     }
 }
 
-// void *ConsBuyLimit(argQueues *arg) {
-
+ void *ConsBuyLimit(argQueues *arg) {
+ 	order temp;
 	while (1) {
 	    pthread_mutex_lock (arg->bl->mut);
 	    while (arg->bl->empty) {
@@ -335,9 +335,90 @@ void *ConsBuyMarket(argQueues *arg) {
 	      pthread_cond_wait (arg->bl->notEmpty, arg->bl->mut);
 	    }
 
+	    if(arg->bl->item[arg->bl->head].type=='C') {
+	   	//If true, then we have a canceled order, so we delete it from the queue, and go to the next
+	    //market Buyer in queue.
+	    	queueDel(arg->bl,&temp);
+	    	//printf("cancelled");
+  		    pthread_mutex_unlock (arg->bl->mut);
+	    	pthread_cond_signal (arg->bl->notFull);
+	    	continue;
+	    }
+
+	    if((arg->sl->empty==0)&&((arg->sl->item[arg->sl->head].price<arg->bl->item[arg->bl->head].price)) {
+	    	//if true, then we use the first order from the sellLimit queue for the Limit Buyer.
+	    	pthread_mutex_lock (arg->sl->mut);
+	    	//printf("SellLimit order is preferable\n");
+	    	//printf("Volume of BL order=%d and volume of SL order=%d\n", arg->bl->item[arg->bl->head].vol, arg->sl->item[arg->sl->head].vol);
+	    	if(arg->sl->item[arg->sl->head].vol>arg->bl->item[arg->bl->head].vol)
+	    	{
+	    		queueDel(arg->bl,&temp);
+	    	//	printf("BL order deleted\n");
+	    		arg->sl->item[arg->sl->head].vol-=temp.vol;
+	    	//	printf("New volume of SL order=%d\n", arg->sl->item[arg->sl->head].vol);
+		    	pthread_mutex_unlock(arg->sl->mut);
+		    	pthread_mutex_unlock (arg->bl->mut);
+		    	pthread_cond_signal (arg->bl->notFull);
+	    	}
+	    	else if (arg->sl->item[arg->sl->head].vol<arg->bl->item[arg->bl->head].vol) {
+	    		queueDel(arg->sl,&temp);
+	    	//	printf("SL order deleted\n");
+	    		arg->bl->item[arg->bl->head].vol-=temp.vol;
+	    	//	printf("New volume of BL order=%d\n", arg->bl->item[arg->bl->head].vol);
+		    	pthread_mutex_unlock(arg->sl->mut);
+		    	pthread_mutex_unlock (arg->bl->mut);
+		    	pthread_cond_signal (arg->sl->notFull);
+	    	}
+	    	else {
+	    		queueDel(arg->bl,&temp);
+	    		queueDel(arg->sl,&temp);
+	    	//	printf("both deleted\n");
+		    	pthread_mutex_unlock(arg->sl->mut);
+		    	pthread_mutex_unlock (arg->bl->mut);
+	    		pthread_cond_signal (arg->sl->notFull);
+		    	pthread_cond_signal (arg->bl->notFull);
+	    	}
+	    	continue;
+	    }
+
+	    if(arg->sm->empty==0) {
+	    	//if false, then we use the first order from the sellMarket queue for the Market Buyer.
+	    	pthread_mutex_lock (arg->sm->mut);
+	    	//printf("SellMarket order is preferable\n");
+	    	//printf("Volume of BL order=%d and volume of SM order=%d\n", arg->bl->item[arg->bl->head].vol, arg->sm->item[arg->sm->head].vol);
+	    	if(arg->sm->item[arg->sm->head].vol>arg->bl->item[arg->bl->head].vol)
+	    	{
+	    		queueDel(arg->bl,&temp);
+	    	//	printf("BL order deleted\n");
+	    		arg->sm->item[arg->sm->head].vol-=temp.vol;
+	    	//	printf("New volume of SM order=%d\n", arg->sm->item[arg->sm->head].vol);
+	    		pthread_mutex_unlock(arg->sm->mut);
+				pthread_mutex_unlock (arg->bl->mut);
+    			pthread_cond_signal (arg->bl->notFull);
+	    	}
+	    	else if (arg->sm->item[arg->sm->head].vol<arg->bl->item[arg->bl->head].vol) {
+	    		queueDel(arg->sm,&temp);
+	    	//	printf("SM order deleted\n");
+	    		arg->bl->item[arg->bl->head].vol-=temp.vol;
+	    	//	printf("New volume of BL order=%d\n", arg->bl->item[arg->bl->head].vol);
+	    		pthread_mutex_unlock(arg->sm->mut);
+				pthread_mutex_unlock (arg->bl->mut);
+    			pthread_cond_signal (arg->sm->notFull);
+	    	}
+	    	else {
+	    		queueDel(arg->bl,&temp);
+	    		queueDel(arg->sm,&temp);
+	    	//	printf("both deleted\n");
+	    		pthread_mutex_unlock(arg->sm->mut);
+				pthread_mutex_unlock (arg->bl->mut);
+    			pthread_cond_signal (arg->sm->notFull);
+    			pthread_cond_signal (arg->bl->notFull);
+	    	}
+	    	continue;
+	    }
+		pthread_mutex_unlock (arg->bl->mut);
+    }
 	    
-	    
-	}
 }
 
 // void *ConsSellMarket(argQueues *arg) {
